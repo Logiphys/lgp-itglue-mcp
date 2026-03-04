@@ -1,3 +1,10 @@
+## [1.2.6](https://github.com/wyre-technology/itglue-mcp/compare/v1.2.5...v1.2.6) (2026-03-04)
+
+
+### Bug Fixes
+
+* grant contents:write to Docker job for release asset upload ([550fdd6](https://github.com/wyre-technology/itglue-mcp/commit/550fdd6eba84a39d5dadc0647ce503a50a30dc2f))
+
 ## [1.2.5](https://github.com/wyre-technology/itglue-mcp/compare/v1.2.4...v1.2.5) (2026-03-04)
 
 
