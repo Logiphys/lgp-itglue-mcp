@@ -86,9 +86,10 @@ try {
     copyFileSync(join(ROOT, '.mcpbignore'), join(STAGING, '.mcpbignore'));
   }
 
-  // 8. Pack the bundle
+  // 8. Pack the bundle (strip org scope from filename to match CI expectations)
   console.log('\n=== Packing MCPB bundle ===');
-  const bundlePath = join(ROOT, `${pkg.name}.mcpb`);
+  const bundleName = pkg.name.replace(/^@[^/]+\//, '');
+  const bundlePath = join(ROOT, `${bundleName}.mcpb`);
   run(`npx mcpb pack "${STAGING}" "${bundlePath}"`, { cwd: ROOT });
 
   // 9. Cleanup
@@ -98,7 +99,7 @@ try {
   console.log('\n=== Done! ===');
   if (existsSync(bundlePath)) {
     const stats = require('fs').statSync(bundlePath);
-    console.log(`Bundle: ${pkg.name}.mcpb (${(stats.size / 1024 / 1024).toFixed(1)}MB)`);
+    console.log(`Bundle: ${bundleName}.mcpb (${(stats.size / 1024 / 1024).toFixed(1)}MB)`);
   }
 } catch (error) {
   console.error('Pack failed:', error.message);
