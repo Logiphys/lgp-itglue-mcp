@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/wyre-technology/itglue-mcp/compare/v1.1.2...v1.2.0) (2026-03-04)
+
+
+### Features
+
+* **documents:** add get_document and create_document tools ([e9fab21](https://github.com/wyre-technology/itglue-mcp/commit/e9fab21500619846da44c7a59fedc92a72b411ed))
+
 ## [1.1.2](https://github.com/wyre-technology/itglue-mcp/compare/v1.1.1...v1.1.2) (2026-03-02)
 
 
