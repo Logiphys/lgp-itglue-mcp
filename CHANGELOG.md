@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/wyre-technology/itglue-mcp/compare/v1.2.8...v1.3.0) (2026-03-05)
+
+
+### Features
+
+* **tools:** add list_flexible_asset_types tool ([c0b4831](https://github.com/wyre-technology/itglue-mcp/commit/c0b4831a2e71acf28d8712e6fc49accfecc76516))
+
 ## [1.2.8](https://github.com/wyre-technology/itglue-mcp/compare/v1.2.7...v1.2.8) (2026-03-05)
 
 
