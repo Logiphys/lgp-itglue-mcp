@@ -286,6 +286,11 @@ describe("Tool Definitions", () => {
     { name: "search_passwords", requiredFields: [] as string[], properties: ["organization_id", "name", "password_category_id", "url", "username", "page_size", "page_number", "sort"] },
     { name: "get_password", requiredFields: ["id"], properties: ["id", "show_password"] },
     { name: "search_documents", requiredFields: ["organization_id"] as string[], properties: ["organization_id", "name", "page_size", "page_number", "sort"] },
+    { name: "list_document_sections", requiredFields: ["document_id"], properties: ["document_id"] },
+    { name: "create_document_section", requiredFields: ["document_id", "section_type", "content"], properties: ["document_id", "section_type", "content"] },
+    { name: "update_document_section", requiredFields: ["document_id", "section_id", "content"], properties: ["document_id", "section_id", "content"] },
+    { name: "delete_document_section", requiredFields: ["document_id", "section_id"], properties: ["document_id", "section_id"] },
+    { name: "publish_document", requiredFields: ["document_id"], properties: ["document_id"] },
     { name: "search_flexible_assets", requiredFields: ["flexible_asset_type_id"], properties: ["flexible_asset_type_id", "organization_id", "name", "page_size", "page_number", "sort"] },
     { name: "itglue_health_check", requiredFields: [] as string[], properties: [] as string[] },
   ];
@@ -301,8 +306,8 @@ describe("Tool Definitions", () => {
     });
   });
 
-  it("should have 9 tools total", () => {
-    expect(tools.length).toBe(9);
+  it("should have 14 tools total", () => {
+    expect(tools.length).toBe(14);
   });
 });
 
@@ -677,6 +682,104 @@ describe("Tool Handler Integration", () => {
       const json = (await response.json()) as JsonApiResponse;
 
       expect((json.data as JsonApiResource[])[0].attributes?.name).toBe("Security Policy");
+    });
+  });
+
+  describe("list_document_sections", () => {
+    it("should list sections for a document", async () => {
+      const mockData = createJsonApiResponse([
+        { id: "1001", type: "document-sections", attributes: { content: "<h2>Overview</h2>", "section-type": "Document::Heading", position: 1 } },
+        { id: "1002", type: "document-sections", attributes: { content: "<p>Details here.</p>", "section-type": "Document::Text", position: 2 } },
+      ]);
+
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockData));
+
+      const response = await fetch("https://api.itglue.com/documents/789/relationships/sections");
+      const json = (await response.json()) as JsonApiResponse;
+
+      expect((json.data as JsonApiResource[]).length).toBe(2);
+      expect((json.data as JsonApiResource[])[0].attributes?.["section-type"]).toBe("Document::Heading");
+    });
+  });
+
+  describe("create_document_section", () => {
+    it("should map 'heading' type to Document::Heading", () => {
+      const sectionTypeMap: Record<string, string> = { heading: "Document::Heading", text: "Document::Text" };
+      expect(sectionTypeMap["heading"]).toBe("Document::Heading");
+    });
+
+    it("should map 'text' type to Document::Text", () => {
+      const sectionTypeMap: Record<string, string> = { heading: "Document::Heading", text: "Document::Text" };
+      expect(sectionTypeMap["text"]).toBe("Document::Text");
+    });
+
+    it("should post a new section to the sections endpoint", async () => {
+      const mockSection = { id: "1003", type: "document-sections", attributes: { content: "<p>New section.</p>", "section-type": "Document::Text" } };
+      mockFetch.mockResolvedValueOnce(createMockResponse({ data: mockSection, meta: {} }));
+
+      const response = await fetch("https://api.itglue.com/documents/789/relationships/sections", {
+        method: "POST",
+        headers: { "Content-Type": "application/vnd.api+json" },
+        body: JSON.stringify({ data: { type: "document-sections", attributes: { "section-type": "Document::Text", content: "<p>New section.</p>" } } }),
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.itglue.com/documents/789/relationships/sections",
+        expect.objectContaining({ method: "POST" })
+      );
+      expect(response.ok).toBe(true);
+    });
+  });
+
+  describe("update_document_section", () => {
+    it("should patch the section with new content", async () => {
+      const mockSection = { id: "1002", type: "document-sections", attributes: { content: "<p>Updated.</p>" } };
+      mockFetch.mockResolvedValueOnce(createMockResponse({ data: mockSection, meta: {} }));
+
+      const response = await fetch("https://api.itglue.com/documents/789/relationships/sections/1002", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/vnd.api+json" },
+        body: JSON.stringify({ data: { type: "document-sections", attributes: { content: "<p>Updated.</p>" } } }),
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.itglue.com/documents/789/relationships/sections/1002",
+        expect.objectContaining({ method: "PATCH" })
+      );
+      expect(response.ok).toBe(true);
+    });
+  });
+
+  describe("delete_document_section", () => {
+    it("should delete a section", async () => {
+      mockFetch.mockResolvedValueOnce(createMockResponse(null, 204));
+
+      const response = await fetch("https://api.itglue.com/documents/789/relationships/sections/1002", {
+        method: "DELETE",
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.itglue.com/documents/789/relationships/sections/1002",
+        expect.objectContaining({ method: "DELETE" })
+      );
+      expect(response.status).toBe(204);
+    });
+  });
+
+  describe("publish_document", () => {
+    it("should use PATCH method (not POST)", async () => {
+      const mockDoc = { id: "789", type: "documents", attributes: { name: "My Doc" } };
+      mockFetch.mockResolvedValueOnce(createMockResponse({ data: mockDoc, meta: {} }));
+
+      const response = await fetch("https://api.itglue.com/documents/789/publish", {
+        method: "PATCH",
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.itglue.com/documents/789/publish",
+        expect.objectContaining({ method: "PATCH" })
+      );
+      expect(response.ok).toBe(true);
     });
   });
 
