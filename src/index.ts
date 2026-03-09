@@ -211,6 +211,52 @@ class ITGlueClient {
     const resource = Array.isArray(json.data) ? json.data[0] : json.data;
     return deserializeResource(resource) as T;
   }
+
+  async patch<T>(path: string, body: Record<string, unknown> = {}): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+
+    const response = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "x-api-key": this.apiKey,
+        "Content-Type": "application/vnd.api+json",
+        Accept: "application/vnd.api+json",
+      },
+      body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`IT Glue API error (${response.status}): ${errorBody}`);
+    }
+
+    const json = (await response.json()) as JsonApiResponse;
+
+    if (json.errors && json.errors.length > 0) {
+      const errorMessages = json.errors.map((e) => e.detail || e.title).join(", ");
+      throw new Error(`IT Glue API error: ${errorMessages}`);
+    }
+
+    const resource = Array.isArray(json.data) ? json.data[0] : json.data;
+    return deserializeResource(resource) as T;
+  }
+
+  async delete(path: string): Promise<void> {
+    const url = `${this.baseUrl}${path}`;
+
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: {
+        "x-api-key": this.apiKey,
+        Accept: "application/vnd.api+json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`IT Glue API error (${response.status}): ${errorBody}`);
+    }
+  }
 }
 
 // Credential extraction from gateway headers
@@ -507,6 +553,98 @@ function createMcpServer(): Server {
             },
           },
           required: ["organization_id", "name"],
+        },
+      },
+      // Document Sections
+      {
+        name: "list_document_sections",
+        description: "List all sections of an IT Glue document in order. Use this to read document content before editing.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            document_id: {
+              type: "number",
+              description: "The document ID",
+            },
+          },
+          required: ["document_id"],
+        },
+      },
+      {
+        name: "create_document_section",
+        description: "Add a new section to an IT Glue document. Section types: 'heading' (Document::Heading) or 'text' (Document::Text). Call publish_document after editing.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            document_id: {
+              type: "number",
+              description: "The document ID",
+            },
+            section_type: {
+              type: "string",
+              enum: ["heading", "text"],
+              description: "Section type: 'heading' for Document::Heading, 'text' for Document::Text",
+            },
+            content: {
+              type: "string",
+              description: "HTML content for the section",
+            },
+          },
+          required: ["document_id", "section_type", "content"],
+        },
+      },
+      {
+        name: "update_document_section",
+        description: "Update the content of an existing IT Glue document section. Use list_document_sections to get section IDs. Call publish_document after editing.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            document_id: {
+              type: "number",
+              description: "The document ID",
+            },
+            section_id: {
+              type: "number",
+              description: "The section ID (from list_document_sections)",
+            },
+            content: {
+              type: "string",
+              description: "New HTML content for the section",
+            },
+          },
+          required: ["document_id", "section_id", "content"],
+        },
+      },
+      {
+        name: "delete_document_section",
+        description: "Delete a section from an IT Glue document. Call publish_document after editing.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            document_id: {
+              type: "number",
+              description: "The document ID",
+            },
+            section_id: {
+              type: "number",
+              description: "The section ID to delete (from list_document_sections)",
+            },
+          },
+          required: ["document_id", "section_id"],
+        },
+      },
+      {
+        name: "publish_document",
+        description: "Publish an IT Glue document to make section changes visible. Always call this after creating, updating, or deleting sections.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            document_id: {
+              type: "number",
+              description: "The document ID to publish",
+            },
+          },
+          required: ["document_id"],
         },
       },
       // Flexible Assets
@@ -825,6 +963,110 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
         return {
           content: [{ type: "text", text: JSON.stringify(newDoc, null, 2) }],
+        };
+      }
+
+      // Document Sections
+      case "list_document_sections": {
+        if (!args?.document_id) {
+          return {
+            content: [{ type: "text", text: "Error: document_id is required" }],
+            isError: true,
+          };
+        }
+        const result = await client.request(
+          `/documents/${args.document_id}/relationships/sections`,
+          {}
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "create_document_section": {
+        if (!args?.document_id || !args?.section_type || !args?.content) {
+          return {
+            content: [{ type: "text", text: "Error: document_id, section_type, and content are required" }],
+            isError: true,
+          };
+        }
+        const sectionTypeMap: Record<string, string> = {
+          heading: "Document::Heading",
+          text: "Document::Text",
+        };
+        const apiSectionType = sectionTypeMap[args.section_type as string];
+        if (!apiSectionType) {
+          return {
+            content: [{ type: "text", text: "Error: section_type must be 'heading' or 'text'" }],
+            isError: true,
+          };
+        }
+        const newSection = await client.post(
+          `/documents/${args.document_id}/relationships/sections`,
+          {
+            data: {
+              type: "document-sections",
+              attributes: {
+                "section-type": apiSectionType,
+                content: args.content,
+              },
+            },
+          }
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(newSection, null, 2) }],
+        };
+      }
+
+      case "update_document_section": {
+        if (!args?.document_id || !args?.section_id || !args?.content) {
+          return {
+            content: [{ type: "text", text: "Error: document_id, section_id, and content are required" }],
+            isError: true,
+          };
+        }
+        const updatedSection = await client.patch(
+          `/documents/${args.document_id}/relationships/sections/${args.section_id}`,
+          {
+            data: {
+              type: "document-sections",
+              attributes: {
+                content: args.content,
+              },
+            },
+          }
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(updatedSection, null, 2) }],
+        };
+      }
+
+      case "delete_document_section": {
+        if (!args?.document_id || !args?.section_id) {
+          return {
+            content: [{ type: "text", text: "Error: document_id and section_id are required" }],
+            isError: true,
+          };
+        }
+        await client.delete(
+          `/documents/${args.document_id}/relationships/sections/${args.section_id}`
+        );
+        return {
+          content: [{ type: "text", text: `Section ${args.section_id} deleted successfully` }],
+        };
+      }
+
+      case "publish_document": {
+        if (!args?.document_id) {
+          return {
+            content: [{ type: "text", text: "Error: document_id is required" }],
+            isError: true,
+          };
+        }
+        // Publish uses PATCH — POST returns 404
+        const published = await client.patch(`/documents/${args.document_id}/publish`);
+        return {
+          content: [{ type: "text", text: JSON.stringify(published, null, 2) }],
         };
       }
 
