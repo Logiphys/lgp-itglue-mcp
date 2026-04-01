@@ -1,7 +1,7 @@
 {
-  "name": "@wyre-technology/itglue-mcp",
+  "name": "@lgp/itglue-mcp",
   "version": "1.5.2",
-  "description": "IT Glue MCP server for Claude",
+  "description": "LGP IT Glue MCP - Organizations, Configs, Passwords, Flexible Assets, Documents and Sections",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -562,6 +562,41 @@ function createMcpServer(): Server {
           required: ["organization_id", "name"],
         },
       },
+      {
+        name: "update_document",
+        description: "Update document metadata (name) in IT Glue",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "The document ID to update",
+            },
+            name: {
+              type: "string",
+              description: "New document name/title",
+            },
+          },
+          required: ["id", "name"],
+        },
+      },
+      {
+        name: "delete_documents",
+        description: "Delete one or more documents from IT Glue by ID",
+        inputSchema: {
+          type: "object",
+          properties: {
+            ids: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+              description: "Array of document IDs to delete",
+            },
+          },
+          required: ["ids"],
+        },
+      },
       // Document Sections
       {
         name: "list_document_sections",
@@ -575,6 +610,20 @@ function createMcpServer(): Server {
             },
           },
           required: ["document_id"],
+        },
+      },
+      {
+        name: "get_document_section",
+        description: "Get a specific document section by ID with full content",
+        inputSchema: {
+          type: "object",
+          properties: {
+            section_id: {
+              type: "number",
+              description: "The section ID to retrieve",
+            },
+          },
+          required: ["section_id"],
         },
       },
       {
@@ -1051,6 +1100,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case "update_document": {
+        if (!args?.id || !args?.name) {
+          return {
+            content: [{ type: "text", text: "Error: id and name are required" }],
+            isError: true,
+          };
+        }
+        const updatedDoc = await client.patch(
+          `/documents/${args.id}`,
+          {
+            data: {
+              type: "documents",
+              attributes: {
+                name: args.name,
+              },
+            },
+          }
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(updatedDoc, null, 2) }],
+        };
+      }
+
+      case "delete_documents": {
+        if (!args?.ids || !Array.isArray(args.ids) || args.ids.length === 0) {
+          return {
+            content: [{ type: "text", text: "Error: ids array is required and must not be empty" }],
+            isError: true,
+          };
+        }
+        const ids = args.ids as string[];
+        for (const id of ids) {
+          await client.delete(`/documents/${id}`);
+        }
+        return {
+          content: [{ type: "text", text: `Successfully deleted ${ids.length} document(s)` }],
+        };
+      }
+
       // Document Sections
       case "list_document_sections": {
         if (!args?.document_id) {
@@ -1065,6 +1153,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
         return {
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "get_document_section": {
+        if (!args?.section_id) {
+          return {
+            content: [{ type: "text", text: "Error: section_id is required" }],
+            isError: true,
+          };
+        }
+        const section = await client.get(`/document_sections/${args.section_id}`);
+        return {
+          content: [{ type: "text", text: JSON.stringify(section, null, 2) }],
         };
       }
 
