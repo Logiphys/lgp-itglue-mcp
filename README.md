@@ -1,3 +1,5 @@
+> **ARCHIVED — This repository has been superseded by [lgp-mcp-servers](https://github.com/Logiphys/lgp-mcp-servers), which consolidates all 9 MCP servers into a single Go monorepo. Please use the monorepo for all new work.**
+
 # IT Glue MCP Server
 
 A Model Context Protocol (MCP) server that provides Claude with access to IT Glue documentation and asset management.
